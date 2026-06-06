@@ -6,16 +6,17 @@ from fastapi import Request
 
 from ..config import settings
 
-QSTASH_URL = "https://qstash.upstash.io/v2/publish"
-
-
 async def dispatch_agent(agent_name: str, job_id: str, payload: dict) -> dict:
-    target_url = f"{settings.VERCEL_URL}/api/v1/agents/{agent_name}"
+    app_url = settings.VERCEL_URL
+    if app_url and not app_url.startswith(("http://", "https://")):
+        app_url = f"https://{app_url}"
+    target_url = f"{app_url.rstrip('/')}/api/v1/agents/{agent_name}"
+    qstash_url = settings.QSTASH_URL.rstrip("/")
     async with httpx.AsyncClient() as client:
         for attempt in range(3):
             try:
                 response = await client.post(
-                    f"{QSTASH_URL}/{target_url}",
+                    f"{qstash_url}/v2/publish/{target_url}",
                     headers={
                         "Authorization": f"Bearer {settings.QSTASH_TOKEN}",
                         "Content-Type": "application/json",

@@ -8,7 +8,10 @@ from .webhooks import greenhouse as greenhouse_webhook
 
 app = FastAPI(title="HR Recruiting Pipeline API", version="2.0.0")
 
-allow_origins = ["*"] if "localhost" in settings.VERCEL_URL else [settings.VERCEL_URL]
+app_origin = settings.VERCEL_URL
+if app_origin and not app_origin.startswith(("http://", "https://")):
+    app_origin = f"https://{app_origin}"
+allow_origins = ["*"] if "localhost" in app_origin else [app_origin]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
