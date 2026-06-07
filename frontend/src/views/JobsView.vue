@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useJobsStore } from '../stores/jobs'
 import { usePipelineStore } from '../stores/pipeline'
@@ -8,12 +8,19 @@ const router = useRouter()
 const jobs = useJobsStore()
 const pipeline = usePipelineStore()
 const form = reactive({ title: '', department: '', seniority: '', notes: '', skills: '', location: 'Remote' })
+const error = ref('')
 
 onMounted(jobs.fetchJobs)
 
 const submit = async () => {
-  const result = await pipeline.startPipeline({ ...form, skills: form.skills.split(',').map(s => s.trim()).filter(Boolean) })
-  router.push(`/pipeline/${result.job_id}`)
+  error.value = ''
+  try {
+    const result = await pipeline.startPipeline({ ...form, skills: form.skills.split(',').map(s => s.trim()).filter(Boolean) })
+    await jobs.fetchJobs()
+    router.push(`/pipeline/${result.job_id}`)
+  } catch (err) {
+    error.value = err.response?.data?.detail || err.message || 'Could not start pipeline'
+  }
 }
 </script>
 
@@ -26,7 +33,8 @@ const submit = async () => {
       <input v-model="form.seniority" class="input" placeholder="Seniority" />
       <input v-model="form.skills" class="input" placeholder="Skills, comma separated" />
       <textarea v-model="form.notes" class="input" placeholder="Notes"></textarea>
-      <button class="button">Start New Pipeline</button>
+      <p v-if="error" style="margin:0;color:#ba1a1a;font-weight:700">{{ error }}</p>
+      <button class="button" :disabled="pipeline.loading">{{ pipeline.loading ? 'Starting...' : 'Start New Pipeline' }}</button>
     </form>
     <div class="grid">
       <article v-for="job in jobs.jobs" :key="job.id" class="card">

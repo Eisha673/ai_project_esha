@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,10 +31,18 @@ class Settings(BaseSettings):
 
     @field_validator("DATABASE_URL")
     @classmethod
-    def ensure_neon_ssl(cls, value: str) -> str:
-        if value.startswith("postgresql") and "sslmode=" not in value:
-            separator = "&" if "?" in value else "?"
-            return f"{value}{separator}sslmode=require"
+    def normalize_database_url(cls, value: str) -> str:
+        if value.startswith("postgresql://"):
+            value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if value.startswith("postgresql+asyncpg"):
+            parts = urlsplit(value)
+            query = dict(parse_qsl(parts.query, keep_blank_values=True))
+            sslmode = query.pop("sslmode", None)
+            if sslmode and "ssl" not in query:
+                query["ssl"] = sslmode
+            elif "ssl" not in query:
+                query["ssl"] = "require"
+            value = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
         return value
 
 

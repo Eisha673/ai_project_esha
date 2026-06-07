@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,10 +27,11 @@ AGENTS = {
 }
 
 NEXT_AGENT = {
-    "search": "search",
-    "assessment": "assessment",
-    "interview": "interview",
-    "offer": "offer",
+    "jd": "search",
+    "search": "assessment",
+    "assessment": "interview",
+    "interview": "offer",
+    "offer": None,
 }
 
 
@@ -39,7 +40,7 @@ class PipelineStart(BaseModel):
     department: str | None = None
     seniority: str | None = None
     notes: str | None = None
-    skills: list[str] = []
+    skills: list[str] = Field(default_factory=list)
     location: str = "Remote"
 
 
@@ -51,11 +52,35 @@ async def _save_state(session: AsyncSession, row: PipelineState, state: dict):
     await session.commit()
 
 
+async def _run_next_agent(session: AsyncSession, row: PipelineState, state: dict):
+    """Run next agent directly in local mode."""
+    current = state.get("current_stage")
+    next_agent_name = NEXT_AGENT.get(current)
+    if not next_agent_name:
+        return
+    agent_fn = AGENTS.get(next_agent_name)
+    if not agent_fn:
+        return
+    print(f"[LOCAL] Running {next_agent_name} agent...")
+    updated = await agent_fn(state)
+    await _save_state(session, row, updated)
+    print(f"[LOCAL] {next_agent_name} done — stage: {updated.get('current_stage')}")
+    # Continue if no human approval needed
+    if not updated.get("errors") and updated.get("human_approved") is not False:
+        await _run_next_agent(session, row, updated)
+
+
 @router.post("/pipeline/start")
 async def start_pipeline(payload: PipelineStart, session: AsyncSession = Depends(get_session)):
-    job = Job(title=payload.title, department=payload.department, seniority=payload.seniority, status="pipeline_started")
+    job = Job(
+        title=payload.title,
+        department=payload.department,
+        seniority=payload.seniority,
+        status="pipeline_started"
+    )
     session.add(job)
     await session.flush()
+
     state = {
         "job_id": str(job.id),
         "role": payload.title,
@@ -68,10 +93,30 @@ async def start_pipeline(payload: PipelineStart, session: AsyncSession = Depends
         "human_approved": True,
         "errors": [],
     }
-    pipeline_state = PipelineState(job_id=job.id, current_stage="jd", state_json=state, human_approved=True, errors=[])
+
+    pipeline_state = PipelineState(
+        job_id=job.id,
+        current_stage="jd",
+        state_json=state,
+        human_approved=True,
+        errors=[]
+    )
     session.add(pipeline_state)
     await session.commit()
-    await qstash.dispatch_agent("jd", str(job.id), {})
+
+    # Run JD agent directly
+    print("[LOCAL] Running jd agent...")
+    updated = await run_jd_agent(state)
+    await _save_state(session, pipeline_state, updated)
+    print(f"[LOCAL] jd done — stage: {updated.get('current_stage')}, approved: {updated.get('human_approved')}")
+
+    # If JD needs human approval, stop and wait
+    if updated.get("human_approved") is False:
+        print("[LOCAL] Waiting for human approval after JD...")
+    elif not updated.get("errors"):
+        # No approval needed, continue pipeline
+        await _run_next_agent(session, pipeline_state, updated)
+
     return {"job_id": str(job.id), "status": "started"}
 
 
@@ -90,7 +135,9 @@ async def pipeline_status(job_id: UUID, session: AsyncSession = Depends(get_sess
 
 @router.get("/pipeline/activity/recent")
 async def recent_activity(session: AsyncSession = Depends(get_session)):
-    rows = await session.scalars(select(AgentRun).order_by(AgentRun.created_at.desc()).limit(10))
+    rows = await session.scalars(
+        select(AgentRun).order_by(AgentRun.created_at.desc()).limit(10)
+    )
     return [
         {
             "agent_name": row.agent_name,
@@ -114,10 +161,21 @@ async def approve_pipeline(job_id: UUID, session: AsyncSession = Depends(get_ses
     row.human_approved = True
     row.state_json = state
     await session.commit()
-    next_agent = NEXT_AGENT.get(row.current_stage or "")
-    if next_agent:
-        await qstash.dispatch_agent(next_agent, str(job_id), {})
-    return {"job_id": str(job_id), "status": "approved", "dispatched": next_agent}
+
+    # Run next agent directly
+    next_agent_name = NEXT_AGENT.get(row.current_stage or "")
+    if next_agent_name:
+        agent_fn = AGENTS.get(next_agent_name)
+        if agent_fn:
+            print(f"[LOCAL] Running {next_agent_name} after approval...")
+            updated = await agent_fn(state)
+            await _save_state(session, row, updated)
+            print(f"[LOCAL] {next_agent_name} done — stage: {updated.get('current_stage')}")
+            # Continue if no further approval needed
+            if not updated.get("errors") and updated.get("human_approved") is not False:
+                await _run_next_agent(session, row, updated)
+
+    return {"job_id": str(job_id), "status": "approved", "next_agent": next_agent_name}
 
 
 @router.post("/agents/{agent_name}")

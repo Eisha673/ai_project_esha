@@ -1,10 +1,17 @@
 import time
+from uuid import UUID
 from collections.abc import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import AsyncSessionLocal
 from ..models.agent_run import AgentRun
+
+
+def as_uuid(value: str | UUID | None) -> UUID | None:
+    if value is None or isinstance(value, UUID):
+        return value
+    return UUID(str(value))
 
 
 async def log_agent_run(
@@ -20,7 +27,7 @@ async def log_agent_run(
 ):
     session.add(
         AgentRun(
-            job_id=job_id,
+            job_id=as_uuid(job_id),
             agent_name=agent_name,
             llm_provider=llm_provider,
             nim_model=nim_model,
@@ -52,6 +59,7 @@ async def tracked_agent(state: dict, agent_name: str, provider: str, nim_model: 
             return updated
         except Exception as exc:
             state.setdefault("errors", []).append(str(exc))
+            await session.rollback()
             await log_agent_run(
                 session,
                 state.get("job_id"),
