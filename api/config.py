@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     CALENDLY_ACCESS_TOKEN: str = ""
     CALENDLY_USER_URI: str = ""
     CALENDLY_WEBHOOK_SIGNING_KEY: str = ""
+    ENABLE_LIVE_AGENT_CALLS: bool = False
     SECRET_KEY: str = "change-me-in-production-minimum-32-chars"
     VERCEL_URL: str = "http://localhost:8000"
 

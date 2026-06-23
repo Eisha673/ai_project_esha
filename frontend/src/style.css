@@ -112,6 +112,19 @@ button {
   padding: 20px;
 }
 
+.job-card {
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.job-card:hover,
+.job-card:focus-visible {
+  border-color: #4f46e5;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, .12);
+  outline: none;
+  transform: translateY(-1px);
+}
+
 .button {
   border: 0;
   border-radius: 6px;
@@ -145,6 +158,120 @@ button {
   font-family: "JetBrains Mono", monospace;
 }
 
+.pipeline-results {
+  display: grid;
+  gap: 24px;
+}
+
+.generated-card {
+  display: grid;
+  gap: 16px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.section-heading p {
+  margin: 4px 0 0;
+}
+
+.section-heading.compact {
+  align-items: center;
+}
+
+.result-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.result-meta div {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.result-meta dt {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.result-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.generated-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.result-list {
+  display: grid;
+  gap: 12px;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+
+.result-row p {
+  margin: 4px 0 0;
+}
+
+.result-row.stacked {
+  display: grid;
+}
+
+.score-chip {
+  align-self: start;
+  min-width: 44px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #047857;
+  padding: 6px 10px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.score-chip.rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.question-list {
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.6;
+}
+
+.result-json {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
@@ -164,5 +291,9 @@ button {
   }
   .page-title {
     font-size: 24px;
+  }
+  .section-heading,
+  .result-row {
+    display: grid;
   }
 }

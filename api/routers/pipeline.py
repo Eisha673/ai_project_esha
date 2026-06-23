@@ -51,6 +51,18 @@ async def _save_state(session: AsyncSession, row: PipelineState, state: dict):
     row.state_json = state
     await session.commit()
 
+    try:
+        job = await session.get(Job, row.job_id)
+        if job:
+            job.status = state.get("current_stage") or job.status
+            job.jd_text = state.get("jd_text") or job.jd_text
+            job.greenhouse_id = state.get("greenhouse_job_id") or job.greenhouse_id
+            job.linkedin_job_url = state.get("linkedin_job_url") or job.linkedin_job_url
+            await session.commit()
+    except Exception as exc:
+        await session.rollback()
+        print(f"[LOCAL] Job metadata sync failed: {exc}")
+
 
 async def _run_next_agent(session: AsyncSession, row: PipelineState, state: dict):
     """Run next agent directly in local mode."""
@@ -102,12 +114,19 @@ async def start_pipeline(payload: PipelineStart, session: AsyncSession = Depends
         errors=[]
     )
     session.add(pipeline_state)
-    await session.commit()
 
     # Run JD agent directly
     print("[LOCAL] Running jd agent...")
     updated = await run_jd_agent(state)
-    await _save_state(session, pipeline_state, updated)
+    pipeline_state.current_stage = updated.get("current_stage")
+    pipeline_state.human_approved = updated.get("human_approved", False)
+    pipeline_state.errors = updated.get("errors", [])
+    pipeline_state.state_json = updated
+    job.status = updated.get("current_stage") or job.status
+    job.jd_text = updated.get("jd_text") or job.jd_text
+    job.greenhouse_id = updated.get("greenhouse_job_id") or job.greenhouse_id
+    job.linkedin_job_url = updated.get("linkedin_job_url") or job.linkedin_job_url
+    await session.commit()
     print(f"[LOCAL] jd done — stage: {updated.get('current_stage')}, approved: {updated.get('human_approved')}")
 
     # If JD needs human approval, stop and wait

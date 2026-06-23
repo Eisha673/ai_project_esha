@@ -6,6 +6,8 @@ CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
 
 def _client() -> AsyncAnthropic:
+    if not settings.ANTHROPIC_API_KEY:
+        raise RuntimeError("Anthropic API key is not configured")
     return AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 

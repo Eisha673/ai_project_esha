@@ -21,6 +21,8 @@ class NIMParseError(Exception):
 
 
 def _client() -> AsyncOpenAI:
+    if not settings.NVIDIA_API_KEY:
+        raise RuntimeError("NVIDIA API key is not configured")
     return AsyncOpenAI(base_url=NIM_BASE_URL, api_key=settings.NVIDIA_API_KEY)
 
 

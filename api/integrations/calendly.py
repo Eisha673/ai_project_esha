@@ -6,10 +6,12 @@ BASE_URL = "https://api.calendly.com"
 
 
 async def _request(method: str, path: str, json: dict | None = None, params: dict | None = None) -> dict:
+    if not settings.CALENDLY_ACCESS_TOKEN:
+        raise RuntimeError("Calendly access token is not configured")
     async with httpx.AsyncClient(base_url=BASE_URL, headers={"Authorization": f"Bearer {settings.CALENDLY_ACCESS_TOKEN}"}) as client:
         for attempt in range(3):
             try:
-                response = await client.request(method, path, json=json, params=params, timeout=20)
+                response = await client.request(method, path, json=json, params=params, timeout=5)
                 response.raise_for_status()
                 return response.json() if response.content else {}
             except httpx.HTTPError:

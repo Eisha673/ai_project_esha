@@ -22,6 +22,10 @@ const submit = async () => {
     error.value = err.response?.data?.detail || err.message || 'Could not start pipeline'
   }
 }
+
+const openJob = (jobId) => {
+  router.push(`/pipeline/${jobId}`)
+}
 </script>
 
 <template>
@@ -37,9 +41,25 @@ const submit = async () => {
       <button class="button" :disabled="pipeline.loading">{{ pipeline.loading ? 'Starting...' : 'Start New Pipeline' }}</button>
     </form>
     <div class="grid">
-      <article v-for="job in jobs.jobs" :key="job.id" class="card">
-        <strong>{{ job.title }}</strong>
-        <p class="muted">{{ job.department }} · {{ job.status }}</p>
+      <article
+        v-for="job in jobs.jobs"
+        :key="job.id"
+        class="card job-card"
+        role="button"
+        tabindex="0"
+        @click="openJob(job.id)"
+        @keydown.enter.prevent="openJob(job.id)"
+        @keydown.space.prevent="openJob(job.id)"
+      >
+        <div class="section-heading compact">
+          <div>
+            <strong>{{ job.title }}</strong>
+            <p class="muted">{{ job.department || 'No department' }} - {{ job.status }}</p>
+          </div>
+          <RouterLink class="button secondary" :to="`/pipeline/${job.id}`" @click.stop>Open Pipeline</RouterLink>
+        </div>
+        <p v-if="job.jd_text" class="generated-text" style="margin-top:14px">{{ job.jd_text.slice(0, 260) }}{{ job.jd_text.length > 260 ? '...' : '' }}</p>
+        <a v-if="job.linkedin_job_url" :href="job.linkedin_job_url" target="_blank" rel="noreferrer" class="muted" style="display:inline-block;margin-top:10px">LinkedIn posting</a>
       </article>
     </div>
   </section>

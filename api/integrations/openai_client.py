@@ -7,6 +7,8 @@ from ..schemas.llm import InterviewQuestionsOutput
 
 
 def _client() -> AsyncOpenAI:
+    if not settings.OPENAI_API_KEY:
+        raise RuntimeError("OpenAI API key is not configured")
     return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 

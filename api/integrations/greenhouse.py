@@ -4,10 +4,12 @@ from ..config import settings
 
 
 async def _request(method: str, path: str, json: dict | None = None) -> dict:
+    if not settings.GREENHOUSE_API_KEY:
+        raise RuntimeError("Greenhouse API key is not configured")
     async with httpx.AsyncClient(base_url=settings.GREENHOUSE_BASE_URL, auth=(settings.GREENHOUSE_API_KEY, "")) as client:
         for attempt in range(3):
             try:
-                response = await client.request(method, path, json=json, timeout=20)
+                response = await client.request(method, path, json=json, timeout=5)
                 response.raise_for_status()
                 return response.json() if response.content else {}
             except httpx.HTTPError:
